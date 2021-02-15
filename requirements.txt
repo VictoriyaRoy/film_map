@@ -2,6 +2,8 @@ branca==0.4.2
 certifi==2020.12.5
 chardet==4.0.0
 folium==0.12.1
+geographiclib==1.50
+geopy==2.1.0
 idna==2.10
 Jinja2==2.11.3
 MarkupSafe==1.1.1
