@@ -63,12 +63,55 @@ def choose_year(year:str, films_data: pd.DataFrame) -> pd.DataFrame:
     return films_data
 
 
+def find_latitude(point: str) -> float:
+    '''
+    Find and return latitude of point
+    >>> find_latitude('England, UK')
+    52.5310214
+    >>> find_latitude('Germany')
+    51.0834196
+    '''
+    try:
+        location = geolocator.geocode(point)
+        return location.latitude
+    except (GeocoderUnavailable, AttributeError):
+        return None
+
+
+def find_longitude(point: str) -> float:
+    '''
+    Find and return longitude of place
+    >>> find_longitude('England, UK')
+    -1.2649062
+    >>> find_longitude('Germany')
+    10.4234469
+    '''
+    try:
+        location = geolocator.geocode(point)
+        return location.longitude
+    except (GeocoderUnavailable, AttributeError):
+        return None
+
+
+def find_coordinates(films_data):
+    '''
+    Find coordinates and create new columns ('Latitude' and 'Longitude')
+    '''
+    films_data['Latitude'] = films_data['Location'].apply(find_latitude)
+    films_data['Longitude'] = films_data['Location'].apply(find_longitude)
+    films_data = films_data[films_data['Latitude'].notna()]
+    films_data = films_data[films_data['Longitude'].notna()]
+    return films_data
+
+
 def main():
     '''Main function'''
     films_data = read_file('locations.list')
     year = input('Please enter a year you would like to have a map for: ')
     films_data = choose_year(year, films_data)
+    films_data = find_coordinates(films_data)
     print(films_data)
+
 
 if __name__ == '__main__':
     main()
