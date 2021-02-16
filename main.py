@@ -98,7 +98,7 @@ def find_longitude(point: str) -> float:
     try:
         location = geolocator.geocode(point)
         return location.longitude
-    except (GeocoderUnavailable, AttributeError):
+    except (GeocoderUnavailable, AttributeError, ValueError):
         return None
 
 
