@@ -1,5 +1,13 @@
+'''
+This module create map with:
+* your location
+* nearest points of film creation
+* location of creation selected film
+'''
+
 import math
 import pandas as pd
+import folium
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 from geopy.exc import GeocoderUnavailable
@@ -45,7 +53,7 @@ def find_name(line: str) -> str:
 
 def read_file(path: str) -> pd.DataFrame:
     '''
-    Read file, format information and create new columns ('Name' and 'Year')
+    Read file, delete unnecessary information and divide column "Name" on name and year
     '''
     films_data = pd.read_csv(path, sep = '\t+', skiprows = 14, \
         names=['Name', 'Location', 'Info'], engine='python')
@@ -94,7 +102,7 @@ def find_longitude(point: str) -> float:
         return None
 
 
-def find_coordinates(films_data):
+def find_coordinates(films_data: pd.DataFrame) -> pd.DataFrame:
     '''
     Find coordinates and create new columns ('Latitude' and 'Longitude')
     '''
@@ -105,7 +113,7 @@ def find_coordinates(films_data):
     return films_data
 
 
-def find_distance(lat1, lon1, lat2, lon2):
+def find_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     '''
     Find distance between two points by coordinates
     >>> round(find_distance(49.8177029, 24.0237912, 49.2204274, 28.3793954), -2)
@@ -138,17 +146,122 @@ def count_distance_to_point(lat: float, lon: float, films_data: pd.DataFrame) ->
     return films_data
 
 
+def find_nearest(films_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    Return 10 nearest points where films were created
+    '''
+    films_data = films_data.sort_values(by=['Distance'])
+    return films_data.head(10)
+
+
+def find_locations_of_film(film: str, films_data: pd.DataFrame) -> pd.DataFrame:
+    '''
+    Return all locations where inputed film was created
+    '''
+    films_data = films_data[films_data['Name'] == film]
+    return films_data
+
+
+def create_layer_of_user_location(user_lan:float, user_lon:float) -> folium.FeatureGroup:
+    '''
+    Create layer with mark which represent user location
+    '''
+    user_location = folium.FeatureGroup(name="Your location")
+    user_location.add_child(folium.Marker(location=[user_lan, user_lon], \
+        popup='You are here', icon=folium.Icon(color='darkred')))
+
+    return user_location
+
+
+def create_layer_of_nearest(points:pd.DataFrame) -> folium.FeatureGroup:
+    '''
+    Create layer with 10 marks which represent nearest location where films were created
+    '''
+    film_names = points['Name']
+    latitude = points['Latitude']
+    longitude = points['Longitude']
+
+    nearest_marks = folium.FeatureGroup(name="Nearest film points")
+    for name, lat, lon in zip(film_names, latitude, longitude):
+        nearest_marks.add_child(folium.Marker(location=[lat, lon], \
+            popup=name, icon=folium.Icon(color='purple')))
+
+    return nearest_marks
+
+
+def create_layer_of_film_location(film: str, points: pd.DataFrame) -> folium.FeatureGroup:
+    '''
+    Create layer with marks which represent all location where the film was created
+    '''
+    location = points['Location']
+    latitude = points['Latitude']
+    longitude = points['Longitude']
+
+    film_marks = folium.FeatureGroup(name=film)
+    for point, lat, lon in zip(location, latitude, longitude):
+        film_marks.add_child(folium.Marker(location=[lat, lon], \
+            popup=point, icon=folium.Icon(color='orange')))
+
+    return film_marks
+
+
+def generate_file_name(year: str, film:str) -> str:
+    '''
+    Generate the name of map file
+    >>> generate_file_name('2002', 'Harry Potter')
+    'Harry_potter_2002_film_map.html'
+    '''
+    film = film.replace(' ', '_')
+    map_name = film + '_' + year + '_film_map.html'
+    return map_name
+
+
+def create_map(user: folium.FeatureGroup, near: folium.FeatureGroup, films: folium.FeatureGroup, \
+    map_name: str) -> None:
+    '''
+    Create a map with marks of your location, nearest film points and locations of entered film
+    '''
+    film_map = folium.Map()
+    film_map.add_child(user)
+    film_map.add_child(near)
+    film_map.add_child(films)
+    film_map.add_child(folium.LayerControl())
+    film_map.save(map_name)
+
+
 def main():
     '''Main function'''
     films_data = read_file('locations.list')
+
     year = input('Please enter a year you would like to have a map for: ')
+    user_lan, user_lon = input('Please enter your location (format: lat, long): ').split(', ')
+    film = input('Please enter a film of this year: ')
+
+    print('Map is generating...')
+    print('Please wait...')
+
     films_data = choose_year(year, films_data)
     films_data = find_coordinates(films_data)
-    films_data = count_distance_to_point(49.8177029, 24.0237912, films_data)
-    print(films_data)
 
+    user_lan = float(user_lan)
+    user_lon = float(user_lon)
+    user_location_layer = create_layer_of_user_location(user_lan, user_lon)
+
+    films_data = count_distance_to_point(user_lan, user_lon, films_data)
+    nearest_films = find_nearest(films_data)
+    nearest_layer = create_layer_of_nearest(nearest_films)
+
+    film_locations = find_locations_of_film(film, films_data)
+    film_layer = create_layer_of_film_location(film, film_locations)
+
+    map_name = generate_file_name(year, film)
+    create_map(user_location_layer, nearest_layer, film_layer, map_name)
+    print(f'Finished. Please have look at the map {map_name}')
+
+# Example:
+# 2011
+# 49.8177029, 24.0237912
+# Game of Thrones
 
 if __name__ == '__main__':
     main()
-    # from doctest import testmod
-    # print(testmod())
